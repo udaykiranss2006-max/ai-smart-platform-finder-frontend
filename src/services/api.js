@@ -1,0 +1,3 @@
+const BASE=import.meta.env.VITE_API_URL||'http://localhost:8080/api';
+async function call(path,options={}){const r=await fetch(BASE+path,{headers:{'Content-Type':'application/json'},...options});if(!r.ok)throw new Error((await r.json().catch(()=>({message:'Request failed'}))).message||'Request failed');return r.json();}
+export const api={analyze:text=>call('/requirements/analyze',{method:'POST',body:JSON.stringify({text})}),recommendation:body=>call('/recommendations',{method:'POST',body:JSON.stringify(body)}),travel:body=>call('/travel/plan',{method:'POST',body:JSON.stringify(body)}),register:body=>call('/auth/register',{method:'POST',body:JSON.stringify(body)}),login:body=>call('/auth/login',{method:'POST',body:JSON.stringify(body)})};
