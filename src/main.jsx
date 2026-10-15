@@ -1,9 +1,376 @@
-import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{api}from'./services/api';import'./index.css';
-const cats=['Shopping','Travel','Food','Hotels','Education','Jobs','Vehicles','Rentals','Agriculture','Services'];
-const demoPlatforms=['TechMart Hyderabad','CityCart Hyderabad','Goa Stay Collective','Dine Local Hyderabad','LearnHub','RideNow Rentals'].map((name,i)=>({platform:{name,category:cats[i%cats.length],description:'DEMO / SAMPLE DATA option for evaluation',rating:4.2+(i%5)/10,locations:['Hyderabad','Goa','Bangalore']},recommendationScore:82}));
-function App(){const[q,setQ]=useState('');const[a,setA]=useState(null);const[results,setResults]=useState([]);const[loading,setLoading]=useState(false);const[page,setPage]=useState('home');const[travel,setTravel]=useState(null);const[error,setError]=useState('');const[authMode,setAuthMode]=useState('login');const[authMessage,setAuthMessage]=useState('');
-async function search(){if(!q.trim()){setError('Type what you need first.');return}setLoading(true);setError('');try{const x=await api.analyze(q);setA(x);const rows=await api.recommendation({category:x.category,location:x.location,budget:x.budget,preferences:x.preferences});setResults(rows.length?rows:demoPlatforms)}catch(e){setResults(demoPlatforms);setA({category:'Demo results',requirement:q,location:'Sample locations',preferences:[]});setError('Backend is unavailable, so clearly marked demo results are shown.')}finally{setLoading(false)}}
-async function makeTravel(e){e.preventDefault();const f=new FormData(e.currentTarget);const body={destination:f.get('destination'),duration:+f.get('duration'),travelers:+f.get('travelers'),budget:+f.get('budget'),preferences:[]};setLoading(true);try{setTravel(await api.travel(body));}catch(e){const transport=3500*body.travelers,hotel=2200*body.duration,food=900*body.travelers*body.duration,activities=1200*body.travelers,miscellaneous=(transport+hotel+food+activities)*.1,total=transport+hotel+food+activities+miscellaneous;setTravel({destination:body.destination,duration:body.duration,status:total<=body.budget?'WITHIN BUDGET':'OVER BUDGET',budgetBreakdown:{transport,hotel,food,activities,miscellaneous,total,remainingBudget:body.budget-total},itinerary:Array.from({length:body.duration},(_,i)=>({day:i+1,title:`Explore ${body.destination}`,activities:['Local breakfast','Signature place','Evening market']}))});setError('Backend is unavailable, so the plan was calculated locally.')}finally{setLoading(false)}}
-async function submitAuth(e){e.preventDefault();const f=new FormData(e.currentTarget);try{const body=authMode==='login'?{email:f.get('email'),password:f.get('password')}:{name:f.get('name'),email:f.get('email'),password:f.get('password')};await api[authMode](body);setAuthMessage('Authentication successful.')}catch(e){setAuthMessage(e.message||'Authentication failed. Check that the backend is running.')}}
-return <><header><div className="brand" onClick={()=>setPage('home')}><span>✦</span> orbit/local</div><nav><button onClick={()=>setPage('home')}>Finder</button><button onClick={()=>setPage('travel')}>Travel planner</button><button onClick={()=>setPage('about')}>About</button></nav><button className="ghost" onClick={()=>setPage('auth')}>Sign in</button></header>{page==='home'&&<main><section className="hero"><div className="eyebrow">SMART SEARCH FOR REAL LIFE</div><h1>Find your next<br/><em>good decision.</em></h1><p className="lede">Describe what you need. orbit/local turns the messy version into a clear shortlist of places, platforms and plans.</p><div className="searchbar"><span>⌕</span><input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} placeholder="What are you looking for?"/><button onClick={search}>{loading?'Working...':'Find it'}</button></div><div className="examples">Try: “laptop for programming under 70000 in Hyderabad”</div></section><section className="category-row">{cats.map((c,i)=><button key={c} onClick={()=>setQ(`Best ${c.toLowerCase()} options near Hyderabad`)}><b>{['◈','◒','◉','⌂','✎','↗','◌','⌂','♧','✦'][i]}</b>{c}</button>)}</section>{error&&<div className="error">{error}</div>}{a&&<section className="analysis"><div><span className="eyebrow">I HEARD YOU</span><h2>{a.requirement||'Your request'}</h2></div><div className="chips"><span>{a.category}</span>{a.location&&<span>⌖ {a.location}</span>}{a.budget&&<span>₹{a.budget.toLocaleString()}</span>}{a.preferences?.map(x=><span key={x}>{x}</span>)}</div></section>}{results.length>0&&<section className="results"><div className="section-head"><div><span className="eyebrow">CURATED SHORTLIST</span><h2>Options worth your time</h2></div><span className="muted">Deterministic match scoring</span></div><div className="cards">{results.slice(0,6).map((x,i)=><article className="card" key={i}><div className="thumb">{['◫','◉','✦'][i%3]}</div><div className="cardbody"><div className="topline"><span className="pill">{x.platform.category}</span><strong>{Math.round(x.recommendationScore)}% match</strong></div><h3>{x.platform.name}</h3><p>{x.platform.description}</p><div className="meta">★ {x.platform.rating.toFixed(1)} <span>•</span> {x.platform.locations?.slice(0,2).join(' · ')}</div><button className="textbtn">View details ↗</button></div></article>)}</div></section>}</main>}{page==='travel'&&<main className="travelpage"><div className="eyebrow">LOCAL PLANNER</div><h1>Make the trip<br/><em>feel lighter.</em></h1><p className="lede">A practical plan with transparent math. No mystery itinerary, no budget surprises.</p><form className="travelform" onSubmit={makeTravel}><label>Destination<input name="destination" defaultValue="Goa" required/></label><label>Days<input name="duration" type="number" min="1" defaultValue="4" required/></label><label>Travelers<input name="travelers" type="number" min="1" defaultValue="2" required/></label><label>Budget (₹)<input name="budget" type="number" min="1" defaultValue="40000" required/></label><button>{loading?'Planning...':'Generate plan'}</button></form>{travel&&<section className="plan"><div className="planhero"><span className="eyebrow">YOUR PLAN</span><h2>{travel.destination}, {travel.duration} days</h2><strong className={travel.status==='WITHIN BUDGET'?'good':'bad'}>{travel.status}</strong></div><div className="budgetgrid">{Object.entries(travel.budgetBreakdown).map(([k,v])=><div key={k}><small>{k}</small><b>₹{Math.round(v).toLocaleString()}</b></div>)}</div><div className="days">{travel.itinerary.map(d=><div className="day" key={d.day}><b>0{d.day}</b><span><strong>{d.title}</strong><small>{d.activities.join(' · ')}</small></span></div>)}</div></section>}</main>}{page==='auth'&&<main className="authpage"><div className="eyebrow">YOUR ORBIT</div><h1>{authMode==='login'?<>Welcome<br/><em>back.</em></>:<>Start your<br/><em>orbit.</em></>}</h1><form className="authform" onSubmit={submitAuth}>{authMode==='register'&&<label>Name<input name="name" required/></label>}<label>Email<input name="email" type="email" required/></label><label>Password<input name="password" type="password" minLength="6" required/></label><button>{authMode==='login'?'Sign in':'Create account'}</button></form>{authMessage&&<p className="authmessage">{authMessage}</p>}<button className="switchauth" onClick={()=>setAuthMode(authMode==='login'?'register':'login')}>{authMode==='login'?'Need an account? Register':'Already have an account? Sign in'}</button></main>}{page==='about'&&<main className="about"><div className="eyebrow">BUILT FOR THE DECISION BEFORE THE DECISION</div><h1>Less tab-hoarding.<br/><em>More moving.</em></h1><p className="lede">orbit/local is a demo platform finder for students, travelers and curious humans. It uses a transparent rule-based analyzer and deterministic ranking, with sample data clearly marked as demo content.</p></main>}<footer>orbit/local <span>AI Smart Platform Finder · demo data, honest recommendations</span></footer></>}
-createRoot(document.getElementById('root')).render(<App/>);
+import React, { useState } from "react";
+import { createRoot } from "react-dom/client";
+import { api } from "./services/api";
+import "./index.css";
+
+const demoResults = [
+  {
+    name: "TechMart Hyderabad",
+    category: "Electronics",
+    description: "Laptops and accessories for programming.",
+    rating: 4.6,
+  },
+  {
+    name: "CityCart Hyderabad",
+    category: "Shopping",
+    description: "Everyday products with local delivery.",
+    rating: 4.3,
+  },
+  {
+    name: "Goa Stay Collective",
+    category: "Hotels",
+    description: "Comfortable stays near beaches and cafes.",
+    rating: 4.7,
+  },
+];
+
+function App() {
+  const [page, setPage] = useState("home");
+  const [authMode, setAuthMode] = useState("login");
+  const [authMessage, setAuthMessage] = useState("");
+  const [user, setUser] = useState(null);
+  const [searchText, setSearchText] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchMessage, setSearchMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  function openLogin() {
+    setAuthMode("login");
+    setAuthMessage("");
+    setPage("auth");
+  }
+
+  function openRegister() {
+    setAuthMode("register");
+    setAuthMessage("");
+    setPage("auth");
+  }
+
+  async function handleAuthentication(event) {
+    event.preventDefault();
+    setAuthMessage("");
+    setLoading(true);
+
+    const form = new FormData(event.currentTarget);
+
+    try {
+      let response;
+
+      if (authMode === "login") {
+        response = await api.login({
+          email: form.get("email"),
+          password: form.get("password"),
+        });
+      } else {
+        response = await api.register({
+          name: form.get("name"),
+          email: form.get("email"),
+          password: form.get("password"),
+        });
+      }
+
+      const loggedInUser = {
+        id: response.userId || "",
+        name: response.name || form.get("name") || "User",
+        email: response.email || form.get("email"),
+      };
+
+      localStorage.setItem("authToken", response.token || "");
+      localStorage.setItem("userId", loggedInUser.id);
+      localStorage.setItem("userName", loggedInUser.name);
+      localStorage.setItem("userEmail", loggedInUser.email);
+
+      setUser(loggedInUser);
+      setAuthMessage("Authentication successful.");
+
+      // This redirects after both login and registration.
+      setPage("dashboard");
+    } catch (error) {
+      setAuthMessage(
+        error.message || "Request failed. Check that the backend is running."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSearch(event) {
+    event.preventDefault();
+
+    if (!searchText.trim()) {
+      setSearchMessage("Enter something to search for.");
+      return;
+    }
+
+    setLoading(true);
+    setSearchMessage("");
+
+    try {
+      const analysis = await api.analyze(searchText);
+
+      const recommendations = await api.recommendation({
+        category: analysis.category,
+        location: analysis.location,
+        budget: analysis.budget,
+        preferences: analysis.preferences || [],
+      });
+
+      if (recommendations.length > 0) {
+        setSearchResults(
+          recommendations.map((item) => ({
+            name: item.platform.name,
+            category: item.platform.category,
+            description: item.platform.description,
+            rating: item.platform.rating,
+            score: item.recommendationScore,
+          }))
+        );
+      } else {
+        setSearchResults(demoResults);
+      }
+
+      setPage("dashboard");
+    } catch (error) {
+      setSearchResults(demoResults);
+      setSearchMessage(
+        "Backend is unavailable. Demo results are displayed."
+      );
+      setPage("dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("userEmail");
+
+    setUser(null);
+    setSearchResults([]);
+    setPage("home");
+  }
+
+  return (
+    <>
+      <header className="navbar">
+        <button className="brand" onClick={() => setPage("home")}>
+          <span>✦</span> orbit/local
+        </button>
+
+        <nav>
+          <button onClick={() => setPage("home")}>Home</button>
+          <button onClick={() => setPage("dashboard")}>Dashboard</button>
+        </nav>
+
+        {user ? (
+          <button className="outline-button" onClick={logout}>
+            Logout
+          </button>
+        ) : (
+          <button className="outline-button" onClick={openLogin}>
+            Sign in
+          </button>
+        )}
+      </header>
+
+      {page === "home" && (
+        <main className="home-page">
+          <div className="eyebrow">SMART SEARCH FOR REAL LIFE</div>
+
+          <h1>
+            Find your next
+            <br />
+            <em>good decision.</em>
+          </h1>
+
+          <p className="lead">
+            Search for products, hotels, restaurants, services, courses,
+            vehicles, and travel plans.
+          </p>
+
+          <form className="search-form" onSubmit={handleSearch}>
+            <input
+              type="text"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="What are you looking for?"
+            />
+
+            <button type="submit" className="primary-button">
+              {loading ? "Searching..." : "Find it"}
+            </button>
+          </form>
+
+          {searchMessage && (
+            <p className="message">{searchMessage}</p>
+          )}
+
+          <div className="auth-shortcut">
+            <button onClick={openLogin}>Already have an account? Sign in</button>
+            <button onClick={openRegister}>Create a new account</button>
+          </div>
+        </main>
+      )}
+
+      {page === "auth" && (
+        <main className="auth-page">
+          <div className="eyebrow">
+            {authMode === "login" ? "WELCOME BACK" : "CREATE ACCOUNT"}
+          </div>
+
+          <h1>
+            {authMode === "login" ? (
+              <>
+                Sign in to
+                <br />
+                <em>continue.</em>
+              </>
+            ) : (
+              <>
+                Start your
+                <br />
+                <em>journey.</em>
+              </>
+            )}
+          </h1>
+
+          <form className="auth-form" onSubmit={handleAuthentication}>
+            {authMode === "register" && (
+              <label>
+                Name
+                <input name="name" type="text" required />
+              </label>
+            )}
+
+            <label>
+              Email
+              <input name="email" type="email" required />
+            </label>
+
+            <label>
+              Password
+              <input
+                name="password"
+                type="password"
+                minLength="6"
+                required
+              />
+            </label>
+
+            <button type="submit" className="primary-button">
+              {loading
+                ? "Please wait..."
+                : authMode === "login"
+                ? "Sign in"
+                : "Create account"}
+            </button>
+          </form>
+
+          {authMessage && (
+            <p className="message">{authMessage}</p>
+          )}
+
+          <button
+            className="switch-button"
+            onClick={() => {
+              setAuthMessage("");
+              setAuthMode(
+                authMode === "login" ? "register" : "login"
+              );
+            }}
+          >
+            {authMode === "login"
+              ? "Need an account? Register"
+              : "Already registered? Sign in"}
+          </button>
+        </main>
+      )}
+
+      {page === "dashboard" && (
+        <main className="dashboard-page">
+          <div className="eyebrow">PERSONAL DASHBOARD</div>
+
+          <h1>
+            Hello,{" "}
+            <em>
+              {user?.name ||
+                localStorage.getItem("userName") ||
+                "there"}
+              .
+            </em>
+          </h1>
+
+          <p className="lead">
+            Your account is active. Search results and recommendations appear
+            below.
+          </p>
+
+          <div className="dashboard-actions">
+            <button
+              className="primary-button"
+              onClick={() => setPage("home")}
+            >
+              Search again
+            </button>
+
+            <button
+              className="outline-button"
+              onClick={logout}
+            >
+              Sign out
+            </button>
+          </div>
+
+          {searchMessage && (
+            <p className="message">{searchMessage}</p>
+          )}
+
+          <section className="result-section">
+            <div className="eyebrow">RECOMMENDATIONS</div>
+            <h2>Options worth your time</h2>
+
+            <div className="result-grid">
+              {searchResults.length === 0 ? (
+                <p>No search results yet. Start a search from the home page.</p>
+              ) : (
+                searchResults.map((result, index) => (
+                  <article className="result-card" key={index}>
+                    <div className="result-icon">✦</div>
+
+                    <div>
+                      <span className="category-label">
+                        {result.category}
+                      </span>
+
+                      <h3>{result.name}</h3>
+                      <p>{result.description}</p>
+
+                      <div className="rating">
+                        ★ {Number(result.rating || 4.3).toFixed(1)}
+                        {result.score && (
+                          <span>
+                            {" "}
+                            · {Math.round(result.score)}% match
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        </main>
+      )}
+
+      <footer className="footer">
+        orbit/local
+        <span>AI Smart Platform Finder</span>
+      </footer>
+    </>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<App />);
